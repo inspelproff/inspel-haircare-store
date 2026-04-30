@@ -162,6 +162,8 @@ export const appRouter = router({
         }
         
         return order;
+        // Trigger notifications and emails
+        await db.triggerOrderNotifications(order.id);
       }),
 
     updateStatus: adminProcedure

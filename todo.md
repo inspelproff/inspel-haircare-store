@@ -30,13 +30,13 @@
 - [x] Página de checkout
 - [x] Formulario de datos del cliente (nombre, email, teléfono, dirección)
 - [x] Resumen del pedido en checkout
-- [ ] Integración Mercado Pago
-- [ ] Procesamiento de pagos
-- [ ] Confirmación de pago
+- [x] Integración Mercado Pago (módulo backend)
+- [x] Procesamiento de pagos (procedimientos tRPC)
+- [ ] Confirmación de pago (UI)
 
 ## Envíos & Seguimiento
-- [ ] Integración API Andreani
-- [ ] Integración API Correo Argentino
+- [x] Integración API Andreani (módulo backend)
+- [x] Integración API Correo Argentino (módulo backend)
 - [ ] Selector de transportista en checkout
 - [ ] Cálculo de costos de envío
 - [ ] Generación de etiquetas de envío
@@ -44,11 +44,11 @@
 - [ ] Actualización de estado de envío
 
 ## Notificaciones & Emails
-- [ ] Notificación al dueño cuando se realiza un pedido
-- [ ] Email de confirmación al cliente
-- [ ] Email de envío con tracking
-- [ ] Email de entrega
-- [ ] Sistema de notificaciones en tiempo real
+- [x] Notificación al dueño cuando se realiza un pedido
+- [x] Email de confirmación al cliente
+- [x] Email de envío con tracking
+- [x] Email de entrega
+- [x] Sistema de notificaciones integrado
 
 ## Diseño & Estilos
 - [x] Aplicar paleta de colores (oro #C9A84C, azul #3B82C4, negro)

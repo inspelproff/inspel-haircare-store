@@ -369,3 +369,135 @@ export async function updateShipmentStatus(
   if (!shipment.length) throw new Error("Failed to update shipment");
   return shipment[0];
 }
+
+
+// ============ HELPER FUNCTIONS FOR NOTIFICATIONS & EMAILS ============
+
+export async function triggerOrderNotifications(orderId: number) {
+  try {
+    const db = await getDb();
+    if (!db) return;
+
+    // Get order with items and customer
+    const order = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
+    if (!order.length) return;
+
+    const customer = await db.select().from(customers).where(eq(customers.id, order[0].customerId)).limit(1);
+    if (!customer.length) return;
+
+    const items = await db.select().from(orderItems).where(eq(orderItems.orderId, orderId));
+    
+    // Import here to avoid circular dependencies
+    const { notifyNewOrder } = await import('./notifications');
+    const { sendOrderConfirmationEmail } = await import('./email');
+
+    const itemDetails = await Promise.all(
+      items.map(async (item) => {
+        const product = await db.select().from(products).where(eq(products.id, item.productId)).limit(1);
+        return {
+          name: product[0]?.name || 'Producto',
+          quantity: item.quantity,
+          price: item.price,
+        };
+      })
+    );
+
+    // Send notification to owner
+    await notifyNewOrder({
+      orderNumber: order[0].orderNumber,
+      customerName: `${customer[0].firstName} ${customer[0].lastName}`,
+      customerEmail: customer[0].email,
+      total: order[0].total,
+      itemCount: items.length,
+      items: itemDetails.map((item) => ({ name: item.name, quantity: item.quantity })),
+    });
+
+    // Send confirmation email to customer
+    await sendOrderConfirmationEmail({
+      customerEmail: customer[0].email,
+      customerName: customer[0].firstName,
+      orderNumber: order[0].orderNumber,
+      items: itemDetails,
+      subtotal: order[0].subtotal,
+      shippingCost: order[0].shippingCost,
+      total: order[0].total,
+    });
+  } catch (error) {
+    console.error('[DB] Error triggering order notifications:', error);
+  }
+}
+
+export async function triggerShippingNotification(shipmentId: number) {
+  try {
+    const db = await getDb();
+    if (!db) return;
+
+    const shipment = await db.select().from(shipments).where(eq(shipments.id, shipmentId)).limit(1);
+    if (!shipment.length) return;
+
+    const order = await db.select().from(orders).where(eq(orders.id, shipment[0].orderId)).limit(1);
+    if (!order.length) return;
+
+    const customer = await db.select().from(customers).where(eq(customers.id, order[0].customerId)).limit(1);
+    if (!customer.length) return;
+
+    const { notifyOrderShipped } = await import('./notifications');
+    const { sendShippingNotificationEmail } = await import('./email');
+
+    await notifyOrderShipped({
+      orderNumber: order[0].orderNumber,
+      customerName: customer[0].firstName,
+      carrier: shipment[0].carrier,
+      trackingNumber: shipment[0].trackingNumber || 'N/A',
+    });
+
+    await sendShippingNotificationEmail({
+      customerEmail: customer[0].email,
+      customerName: customer[0].firstName,
+      orderNumber: order[0].orderNumber,
+      carrier: shipment[0].carrier,
+      trackingNumber: shipment[0].trackingNumber || '',
+      trackingUrl: shipment[0].carrier_tracking_url || undefined,
+    });
+  } catch (error) {
+    console.error('[DB] Error triggering shipping notification:', error);
+  }
+}
+
+export async function triggerDeliveryNotification(shipmentId: number) {
+  try {
+    const db = await getDb();
+    if (!db) return;
+
+    const shipment = await db.select().from(shipments).where(eq(shipments.id, shipmentId)).limit(1);
+    if (!shipment.length) return;
+
+    const order = await db.select().from(orders).where(eq(orders.id, shipment[0].orderId)).limit(1);
+    if (!order.length) return;
+
+    const customer = await db.select().from(customers).where(eq(customers.id, order[0].customerId)).limit(1);
+    if (!customer.length) return;
+
+    const { notifyOrderDelivered } = await import('./notifications');
+    const { sendDeliveryNotificationEmail } = await import('./email');
+
+    const deliveryDate = shipment[0].actualDelivery 
+      ? new Date(shipment[0].actualDelivery).toLocaleDateString('es-AR')
+      : new Date().toLocaleDateString('es-AR');
+
+    await notifyOrderDelivered({
+      orderNumber: order[0].orderNumber,
+      customerName: customer[0].firstName,
+      deliveryDate,
+    });
+
+    await sendDeliveryNotificationEmail({
+      customerEmail: customer[0].email,
+      customerName: customer[0].firstName,
+      orderNumber: order[0].orderNumber,
+      deliveryDate,
+    });
+  } catch (error) {
+    console.error('[DB] Error triggering delivery notification:', error);
+  }
+}
