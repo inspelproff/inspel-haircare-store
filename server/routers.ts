@@ -5,6 +5,8 @@ import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import { z } from "zod";
 import * as db from "./db";
 import { TRPCError } from "@trpc/server";
+import * as payment from "./payment";
+import * as shipping from "./shipping";
 
 // Helper para verificar si es admin
 const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
@@ -218,6 +220,93 @@ export const appRouter = router({
       }))
       .mutation(async ({ input }) => {
         return db.updateShipmentStatus(input.id, input.status, input.actualDelivery);
+      }),
+  }),
+
+  // ============ PAYMENTS ============
+  payments: router({
+    createMercadoPagoPreference: publicProcedure
+      .input(z.object({
+        orderId: z.string(),
+        items: z.array(z.object({
+          title: z.string(),
+          quantity: z.number().int().min(1),
+          unit_price: z.number().min(0),
+        })),
+        payer: z.object({
+          name: z.string(),
+          email: z.string().email(),
+          phone: z.string().optional(),
+        }),
+        backUrls: z.object({
+          success: z.string().url(),
+          failure: z.string().url(),
+          pending: z.string().url(),
+        }),
+      }))
+      .mutation(async ({ input }) => {
+        return payment.createMercadoPagoPreference(input);
+      }),
+
+    getMercadoPagoStatus: publicProcedure
+      .input(z.string())
+      .query(async ({ input }) => {
+        return payment.getMercadoPagoPaymentStatus(input);
+      }),
+  }),
+
+  // ============ SHIPPING INTEGRATIONS ============
+  shippingIntegration: router({
+    createAndreaniShipment: adminProcedure
+      .input(z.object({
+        orderId: z.string(),
+        recipientName: z.string(),
+        recipientPhone: z.string(),
+        recipientEmail: z.string().email(),
+        address: z.string(),
+        city: z.string(),
+        province: z.string(),
+        postalCode: z.string(),
+        weight: z.number().min(0.1),
+        items: z.array(z.object({
+          description: z.string(),
+          quantity: z.number().int().min(1),
+        })),
+      }))
+      .mutation(async ({ input }) => {
+        return shipping.createAndreaniShipment(input);
+      }),
+
+    getAndreaniTracking: publicProcedure
+      .input(z.string())
+      .query(async ({ input }) => {
+        return shipping.getAndreaniTracking(input);
+      }),
+
+    createCorreoArgentinoShipment: adminProcedure
+      .input(z.object({
+        orderId: z.string(),
+        recipientName: z.string(),
+        recipientPhone: z.string(),
+        recipientEmail: z.string().email(),
+        address: z.string(),
+        city: z.string(),
+        province: z.string(),
+        postalCode: z.string(),
+        weight: z.number().min(0.1),
+        items: z.array(z.object({
+          description: z.string(),
+          quantity: z.number().int().min(1),
+        })),
+      }))
+      .mutation(async ({ input }) => {
+        return shipping.createCorreoArgentinoShipment(input);
+      }),
+
+    getCorreoArgentinoTracking: publicProcedure
+      .input(z.string())
+      .query(async ({ input }) => {
+        return shipping.getCorreoArgentinoTracking(input);
       }),
   }),
 });

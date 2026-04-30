@@ -56,6 +56,7 @@
 - [x] Responsive design mobile/tablet/desktop
 - [x] Animaciones y transiciones suaves
 - [x] Footer con información de marca
+- [x] Remover "Dermatológicamente Testeado" y "Cruelty Free" de beneficios
 
 ## Testing & Optimización
 - [ ] Tests unitarios con Vitest
