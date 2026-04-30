@@ -67,25 +67,25 @@
   --chart-4: var(--gold-light);
   --chart-5: var(--blue-light);
   --radius: 0.65rem;
-  --background: #FFFFFF;
-  --foreground: #000000;
-  --card: #F5F5F5;
-  --card-foreground: #000000;
-  --popover: #FFFFFF;
-  --popover-foreground: #000000;
+  --background: var(--black);
+  --foreground: var(--white);
+  --card: var(--black-mid);
+  --card-foreground: var(--white);
+  --popover: var(--black-mid);
+  --popover-foreground: var(--white);
   --secondary: var(--blue-acc);
   --secondary-foreground: var(--white);
-  --muted: #E0E0E0;
-  --muted-foreground: #666666;
+  --muted: var(--charcoal);
+  --muted-foreground: var(--white-dim);
   --accent: var(--gold);
   --accent-foreground: var(--black);
   --destructive: #E24B4A;
   --destructive-foreground: var(--white);
   --border: rgba(201, 168, 76, 0.2);
-  --input: #F5F5F5;
+  --input: var(--black-soft);
   --ring: var(--gold);
-  --sidebar: #F5F5F5;
-  --sidebar-foreground: #000000;
+  --sidebar: var(--black-mid);
+  --sidebar-foreground: var(--white);
   --sidebar-accent: var(--gold);
   --sidebar-accent-foreground: var(--black);
   --sidebar-border: rgba(201, 168, 76, 0.2);
@@ -93,7 +93,7 @@
 }
 
 .dark {
-  /* Dark theme - keep original Inspel dark colors */
+  /* Dark theme uses same Inspel colors */
   --primary: var(--gold);
   --primary-foreground: var(--black);
   --sidebar-primary: var(--gold);
@@ -289,7 +289,7 @@
   }
 
   .pcard {
-    @apply bg-white border border-[rgba(201,168,76,0.13)] cursor-pointer transition-all duration-300 hover:translate-y-[-3px] relative overflow-hidden;
+    @apply bg-[var(--black-mid)] border border-[rgba(201,168,76,0.13)] cursor-pointer transition-all duration-300 hover:translate-y-[-3px] relative overflow-hidden;
   }
 
   .pcard.blue-card {
@@ -305,11 +305,11 @@
   }
 
   .pimg {
-    @apply w-full aspect-square bg-gradient-to-br from-[#F0F0F0] to-[#E8E8E8] flex items-center justify-center flex-col gap-1 p-7 relative;
+    @apply w-full aspect-square bg-gradient-to-br from-[var(--charcoal)] to-[var(--black-soft)] flex items-center justify-center flex-col gap-1 p-7 relative;
   }
 
   .pimg.blue-bg {
-    @apply bg-gradient-to-br from-[#E8F0F8] to-[#D8E8F8];
+    @apply bg-gradient-to-br from-[#14253A] to-[#0D1822];
   }
 
   .picon {
@@ -345,12 +345,12 @@
   }
 
   .pname {
-    @apply text-lg font-medium text-black mb-1 tracking-wide;
+    @apply text-lg font-medium text-white mb-1 tracking-wide;
     font-family: 'Cormorant Garamond', serif;
   }
 
   .pdesc {
-    @apply text-xs text-[#666666] tracking-wide mb-3 leading-relaxed;
+    @apply text-xs text-[var(--white-dim)] tracking-wide mb-3 leading-relaxed;
   }
 
   .pfooter {
