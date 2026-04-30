@@ -193,16 +193,6 @@ export default function Home() {
             <div className="btitle gold">Sin Químicos Dañinos</div>
             <div className="btext">Libre de parabenos, sulfatos y silicones</div>
           </div>
-          <div className="bitem">
-            <div className="bicon">🧪</div>
-            <div className="btitle gold">Dermatológicamente Testeado</div>
-            <div className="btext">Apto para todos los tipos de cabello</div>
-          </div>
-          <div className="bitem">
-            <div className="bicon">💚</div>
-            <div className="btitle gold">Cruelty Free</div>
-            <div className="btext">Producción ética y sostenible</div>
-          </div>
         </div>
       </div>
 
