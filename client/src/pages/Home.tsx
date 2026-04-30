@@ -90,9 +90,9 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-[var(--black)] text-[var(--white)]">
+    <div className="min-h-screen bg-white text-black">
       {/* Header */}
-      <header className="bg-[var(--black)] border-b border-[rgba(201,168,76,0.2)] sticky top-0 z-40 px-6">
+      <header className="bg-white border-b border-[rgba(201,168,76,0.3)] sticky top-0 z-40 px-6">
         <div className="max-w-6xl mx-auto flex items-center justify-between h-16">
           <div className="flex flex-col leading-none">
             <span className="text-xl font-medium text-[var(--gold)] tracking-widest" style={{ fontFamily: 'Cormorant Garamond, serif' }}>
@@ -273,12 +273,12 @@ export default function Home() {
           width: '100%',
           maxWidth: '400px',
           height: '100vh',
-          background: 'var(--black)',
-          borderLeft: '1px solid rgba(201,168,76,0.2)',
+          background: 'white',
+          borderLeft: '1px solid rgba(201,168,76,0.3)',
           zIndex: 50,
           display: 'flex',
           flexDirection: 'column',
-          boxShadow: '-10px 0 30px rgba(0,0,0,0.5)',
+          boxShadow: '-10px 0 30px rgba(0,0,0,0.1)',
           animation: 'slideInRight 0.3s ease-out'
         }}>
           {/* Cart Header */}
@@ -324,7 +324,7 @@ export default function Home() {
                 }}>
                   <div style={{ fontSize: '24px' }}>{item.icon}</div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: '14px', fontWeight: 'bold', color: 'var(--white)' }}>
+                    <div style={{ fontSize: '14px', fontWeight: 'bold', color: 'black' }}>
                       {item.name}
                     </div>
                     <div style={{ fontSize: '12px', color: '#999' }}>

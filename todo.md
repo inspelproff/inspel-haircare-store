@@ -23,8 +23,10 @@
 - [x] Formulario para agregar producto
 - [x] Formulario para editar producto
 - [x] Gestión de stock
-- [ ] Listado de pedidos
-- [ ] Detalles de pedido
+- [x] Listado de pedidos
+- [x] Detalles de pedido
+- [x] Listado de clientes
+- [x] Listado de envíos
 
 ## Checkout & Pagos
 - [x] Página de checkout
@@ -57,6 +59,9 @@
 - [x] Animaciones y transiciones suaves
 - [x] Footer con información de marca
 - [x] Remover "Dermatológicamente Testeado" y "Cruelty Free" de beneficios
+- [x] Cambiar fondo a blanco
+- [x] Cambiar letras a color negro
+- [x] Ajustar paleta de colores (mantener acentos dorado y azul)
 
 ## Testing & Optimización
 - [ ] Tests unitarios con Vitest
