@@ -1,10 +1,20 @@
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
-import { publicProcedure, router } from "./_core/trpc";
+import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
+import { z } from "zod";
+import * as db from "./db";
+import { TRPCError } from "@trpc/server";
+
+// Helper para verificar si es admin
+const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
+  if (ctx.user.role !== 'admin') {
+    throw new TRPCError({ code: 'FORBIDDEN', message: 'Admin access required' });
+  }
+  return next({ ctx });
+});
 
 export const appRouter = router({
-    // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
   system: systemRouter,
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
@@ -17,12 +27,199 @@ export const appRouter = router({
     }),
   }),
 
-  // TODO: add feature routers here, e.g.
-  // todo: router({
-  //   list: protectedProcedure.query(({ ctx }) =>
-  //     db.getUserTodos(ctx.user.id)
-  //   ),
-  // }),
+  // ============ PRODUCTS ============
+  products: router({
+    getAll: publicProcedure.query(async () => {
+      return db.getAllProducts();
+    }),
+
+    getByLine: publicProcedure
+      .input(z.enum(["Nutriessence", "Strength"]))
+      .query(async ({ input }) => {
+        return db.getProductsByLine(input);
+      }),
+
+    getById: publicProcedure
+      .input(z.number())
+      .query(async ({ input }) => {
+        return db.getProductById(input);
+      }),
+
+    create: adminProcedure
+      .input(z.object({
+        name: z.string().min(1),
+        line: z.enum(["Nutriessence", "Strength"]),
+        description: z.string().optional(),
+        price: z.string().regex(/^\d+(\.\d{2})?$/),
+        stock: z.number().int().min(0),
+        image: z.string().optional(),
+        icon: z.string().optional(),
+        badge: z.string().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        return db.createProduct(input);
+      }),
+
+    update: adminProcedure
+      .input(z.object({
+        id: z.number(),
+        name: z.string().optional(),
+        line: z.enum(["Nutriessence", "Strength"]).optional(),
+        description: z.string().optional(),
+        price: z.string().regex(/^\d+(\.\d{2})?$/).optional(),
+        stock: z.number().int().min(0).optional(),
+        image: z.string().optional(),
+        icon: z.string().optional(),
+        badge: z.string().optional(),
+        active: z.boolean().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const { id, ...data } = input;
+        return db.updateProduct(id, data);
+      }),
+
+    delete: adminProcedure
+      .input(z.number())
+      .mutation(async ({ input }) => {
+        await db.deleteProduct(input);
+        return { success: true };
+      }),
+  }),
+
+  // ============ CUSTOMERS ============
+  customers: router({
+    create: publicProcedure
+      .input(z.object({
+        firstName: z.string().min(1),
+        lastName: z.string().min(1),
+        email: z.string().email(),
+        phone: z.string().min(1),
+        address: z.string().min(1),
+        city: z.string().min(1),
+        province: z.string().min(1),
+        postalCode: z.string().min(1),
+      }))
+      .mutation(async ({ input }) => {
+        return db.createCustomer(input);
+      }),
+
+    getById: publicProcedure
+      .input(z.number())
+      .query(async ({ input }) => {
+        return db.getCustomerById(input);
+      }),
+  }),
+
+  // ============ ORDERS ============
+  orders: router({
+    getAll: adminProcedure.query(async () => {
+      return db.getAllOrders();
+    }),
+
+    getById: publicProcedure
+      .input(z.number())
+      .query(async ({ input }) => {
+        return db.getOrderById(input);
+      }),
+
+    getByNumber: publicProcedure
+      .input(z.string())
+      .query(async ({ input }) => {
+        return db.getOrderByNumber(input);
+      }),
+
+    create: publicProcedure
+      .input(z.object({
+        orderNumber: z.string(),
+        customerId: z.number(),
+        subtotal: z.string().regex(/^\d+(\.\d{2})?$/),
+        shippingCost: z.string().regex(/^\d+(\.\d{2})?$/),
+        total: z.string().regex(/^\d+(\.\d{2})?$/),
+        paymentMethod: z.enum(["mercadopago", "transfer"]),
+        notes: z.string().optional(),
+        items: z.array(z.object({
+          productId: z.number(),
+          quantity: z.number().int().min(1),
+          price: z.string().regex(/^\d+(\.\d{2})?$/),
+        })),
+      }))
+      .mutation(async ({ input }) => {
+        const { items, ...orderData } = input;
+        
+        // Create order
+        const order = await db.createOrder(orderData);
+        
+        // Create order items
+        for (const item of items) {
+          await db.createOrderItem({
+            orderId: order.id,
+            productId: item.productId,
+            quantity: item.quantity,
+            price: item.price,
+          });
+        }
+        
+        return order;
+      }),
+
+    updateStatus: adminProcedure
+      .input(z.object({
+        id: z.number(),
+        status: z.enum(["pending", "confirmed", "processing", "shipped", "delivered", "cancelled"]),
+      }))
+      .mutation(async ({ input }) => {
+        return db.updateOrderStatus(input.id, input.status);
+      }),
+
+    updatePaymentStatus: adminProcedure
+      .input(z.object({
+        id: z.number(),
+        paymentStatus: z.enum(["pending", "approved", "rejected", "cancelled"]),
+        mercadopagoId: z.string().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        return db.updateOrderPaymentStatus(input.id, input.paymentStatus, input.mercadopagoId);
+      }),
+  }),
+
+  // ============ ORDER ITEMS ============
+  orderItems: router({
+    getByOrderId: publicProcedure
+      .input(z.number())
+      .query(async ({ input }) => {
+        return db.getOrderItems(input);
+      }),
+  }),
+
+  // ============ SHIPMENTS ============
+  shipments: router({
+    create: adminProcedure
+      .input(z.object({
+        orderId: z.number(),
+        carrier: z.enum(["andreani", "correo_argentino"]),
+        trackingNumber: z.string().optional(),
+        carrier_tracking_url: z.string().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        return db.createShipment(input);
+      }),
+
+    getByOrderId: publicProcedure
+      .input(z.number())
+      .query(async ({ input }) => {
+        return db.getShipmentByOrderId(input);
+      }),
+
+    updateStatus: adminProcedure
+      .input(z.object({
+        id: z.number(),
+        status: z.enum(["pending", "picked_up", "in_transit", "out_for_delivery", "delivered", "failed"]),
+        actualDelivery: z.date().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        return db.updateShipmentStatus(input.id, input.status, input.actualDelivery);
+      }),
+  }),
 });
 
 export type AppRouter = typeof appRouter;
