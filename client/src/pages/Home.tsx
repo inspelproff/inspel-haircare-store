@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useLocation } from 'wouter';
 import { trpc } from '@/lib/trpc';
 import { useAuth } from '@/_core/hooks/useAuth';
@@ -22,7 +22,7 @@ export default function Home() {
   const [toast, setToast] = useState('');
 
   // Fetch products
-  const { data: products = [] } = trpc.products.getByLine.useQuery(currentLine);
+  const { data: products = [], isLoading } = trpc.products.getByLine.useQuery(currentLine);
 
   // Show toast notification
   const showToast = (message: string) => {
@@ -77,6 +77,18 @@ export default function Home() {
 
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
+  const handleCheckout = () => {
+    if (cart.length === 0) {
+      showToast('El carrito está vacío');
+      return;
+    }
+    setLocation('/checkout');
+  };
+
+  const handleAdminPanel = () => {
+    setLocation('/admin');
+  };
+
   return (
     <div className="min-h-screen bg-[var(--black)] text-[var(--white)]">
       {/* Header */}
@@ -90,15 +102,25 @@ export default function Home() {
               Premium Hair Care
             </span>
           </div>
-          <button
-            onClick={() => setCartOpen(!cartOpen)}
-            className="bg-none border border-[rgba(201,168,76,0.35)] text-[var(--gold)] px-4 py-2 text-xs font-light tracking-widest uppercase cursor-pointer flex items-center gap-2 transition-all duration-300 hover:bg-[rgba(201,168,76,0.1)] hover:border-[var(--gold)]"
-          >
-            <span>Carrito</span>
-            <span className="bg-[var(--gold)] text-[var(--black)] w-5 h-5 rounded-full flex items-center justify-center text-xs font-medium">
-              {cartCount}
-            </span>
-          </button>
+          <div className="flex items-center gap-4">
+            {user?.role === 'admin' && (
+              <button
+                onClick={handleAdminPanel}
+                className="bg-none border border-[rgba(59,130,196,0.35)] text-[var(--blue)] px-4 py-2 text-xs font-light tracking-widest uppercase cursor-pointer transition-all duration-300 hover:bg-[rgba(59,130,196,0.1)] hover:border-[var(--blue)]"
+              >
+                Admin
+              </button>
+            )}
+            <button
+              onClick={() => setCartOpen(!cartOpen)}
+              className="bg-none border border-[rgba(201,168,76,0.35)] text-[var(--gold)] px-4 py-2 text-xs font-light tracking-widest uppercase cursor-pointer flex items-center gap-2 transition-all duration-300 hover:bg-[rgba(201,168,76,0.1)] hover:border-[var(--gold)]"
+            >
+              <span>Carrito</span>
+              <span className="bg-[var(--gold)] text-[var(--black)] w-5 h-5 rounded-full flex items-center justify-center text-xs font-medium">
+                {cartCount}
+              </span>
+            </button>
+          </div>
         </div>
       </header>
 
@@ -140,44 +162,66 @@ export default function Home() {
           </button>
         </div>
 
+        {/* Loading State */}
+        {isLoading && (
+          <div className="pgrid">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="pcard gold-card animate-pulse">
+                <div className="pimg" style={{ height: '120px', background: 'rgba(201,168,76,0.1)' }} />
+                <div className="pinfo" style={{ height: '150px', background: 'rgba(201,168,76,0.05)' }} />
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Products Grid */}
-        <div className="pgrid">
-          {products.map((product: any) => (
-            <div
-              key={product.id}
-              className={`pcard ${currentLine === 'Strength' ? 'blue-card' : 'gold-card'}`}
-            >
-              <div className={`pimg ${currentLine === 'Strength' ? 'blue-bg' : ''}`}>
-                <div className="picon">{product.icon || '💇'}</div>
-                <div className={`pml ${currentLine === 'Strength' ? 'blue-ml' : ''}`}>
-                  {product.line}
-                </div>
-              </div>
-              {product.badge && (
-                <div className={`pbadge ${currentLine === 'Strength' ? 'blue' : 'gold'}`}>
-                  {product.badge}
-                </div>
-              )}
-              <div className={`pinfo ${currentLine === 'Strength' ? 'blue-border' : ''}`}>
-                <div className="pname" style={{ fontFamily: 'Cormorant Garamond, serif' }}>
-                  {product.name}
-                </div>
-                <div className="pdesc">{product.description}</div>
-                <div className="pfooter">
-                  <div className={`pprice ${currentLine === 'Strength' ? 'blue' : 'gold'}`} style={{ fontFamily: 'Cormorant Garamond, serif' }}>
-                    ${product.price}
+        {!isLoading && products.length > 0 && (
+          <div className="pgrid">
+            {products.map((product: any) => (
+              <div
+                key={product.id}
+                className={`pcard ${currentLine === 'Strength' ? 'blue-card' : 'gold-card'}`}
+              >
+                <div className={`pimg ${currentLine === 'Strength' ? 'blue-bg' : ''}`}>
+                  <div className="picon">{product.icon || '💇'}</div>
+                  <div className={`pml ${currentLine === 'Strength' ? 'blue-ml' : ''}`}>
+                    {product.line}
                   </div>
-                  <button
-                    onClick={() => addToCart(product)}
-                    className={`abtn ${currentLine === 'Strength' ? 'blue' : 'gold'}`}
-                  >
-                    Agregar al carrito
-                  </button>
+                </div>
+                {product.badge && (
+                  <div className={`pbadge ${currentLine === 'Strength' ? 'blue' : 'gold'}`}>
+                    {product.badge}
+                  </div>
+                )}
+                <div className={`pinfo ${currentLine === 'Strength' ? 'blue-border' : ''}`}>
+                  <div className="pname" style={{ fontFamily: 'Cormorant Garamond, serif' }}>
+                    {product.name}
+                  </div>
+                  <div className="pdesc">{product.description}</div>
+                  <div className="pfooter">
+                    <div className={`pprice ${currentLine === 'Strength' ? 'blue' : 'gold'}`} style={{ fontFamily: 'Cormorant Garamond, serif' }}>
+                      ${product.price}
+                    </div>
+                    <button
+                      onClick={() => addToCart(product)}
+                      className={`abtn ${currentLine === 'Strength' ? 'blue' : 'gold'}`}
+                    >
+                      Agregar al carrito
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
+
+        {/* Empty State */}
+        {!isLoading && products.length === 0 && (
+          <div style={{ textAlign: 'center', padding: '60px 20px', color: '#999' }}>
+            <p style={{ fontSize: '18px', marginBottom: '10px' }}>No hay productos disponibles</p>
+            <p style={{ fontSize: '14px' }}>Vuelve pronto para ver nuestras nuevas líneas</p>
+          </div>
+        )}
       </div>
 
       {/* Benefits Section */}
@@ -197,105 +241,255 @@ export default function Home() {
       </div>
 
       {/* Footer */}
-      <footer>
-        <div className="flogo" style={{ fontFamily: 'Cormorant Garamond, serif' }}>
-          Inspel
-        </div>
-        <div className="fclaims">
-          <span>Premium Hair Care</span>
-          <span>Made in Argentina</span>
-          <span>© 2026</span>
-        </div>
-        <div className="fcopy">
-          Todos los derechos reservados
-        </div>
+      <footer style={{ background: 'rgba(201,168,76,0.05)', borderTop: '1px solid rgba(201,168,76,0.2)', padding: '40px 20px', textAlign: 'center', color: '#999', fontSize: '12px' }}>
+        <p>&copy; 2026 Inspel - Premium Hair Care. Todos los derechos reservados.</p>
       </footer>
 
-      {/* Cart Overlay */}
-      <div className={`cart-overlay ${cartOpen ? 'open' : ''}`} onClick={() => setCartOpen(false)} />
+      {/* Toast Notification */}
+      {toast && (
+        <div style={{
+          position: 'fixed',
+          bottom: '20px',
+          right: '20px',
+          background: 'var(--gold)',
+          color: 'var(--black)',
+          padding: '12px 20px',
+          borderRadius: '4px',
+          fontSize: '14px',
+          fontWeight: 'bold',
+          zIndex: 50,
+          animation: 'slideIn 0.3s ease-out'
+        }}>
+          {toast}
+        </div>
+      )}
 
       {/* Cart Drawer */}
-      <div className={`drawer ${cartOpen ? 'open' : ''}`}>
-        <div className="dhdr">
-          <div className="dtitle" style={{ fontFamily: 'Cormorant Garamond, serif' }}>
-            Carrito
+      {cartOpen && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          right: 0,
+          width: '100%',
+          maxWidth: '400px',
+          height: '100vh',
+          background: 'var(--black)',
+          borderLeft: '1px solid rgba(201,168,76,0.2)',
+          zIndex: 50,
+          display: 'flex',
+          flexDirection: 'column',
+          boxShadow: '-10px 0 30px rgba(0,0,0,0.5)',
+          animation: 'slideInRight 0.3s ease-out'
+        }}>
+          {/* Cart Header */}
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            padding: '20px',
+            borderBottom: '1px solid rgba(201,168,76,0.2)'
+          }}>
+            <h2 style={{ fontSize: '18px', fontWeight: 'bold', color: 'var(--gold)', fontFamily: 'Cormorant Garamond, serif' }}>
+              Mi Carrito
+            </h2>
+            <button
+              onClick={() => setCartOpen(false)}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'var(--gold)',
+                cursor: 'pointer',
+                fontSize: '20px'
+              }}
+            >
+              ✕
+            </button>
           </div>
-          <button
-            onClick={() => setCartOpen(false)}
-            className="xbtn"
-          >
-            <X size={20} />
-          </button>
-        </div>
 
-        <div className="ditems">
-          {cart.length === 0 ? (
-            <div className="dempty">
-              Tu carrito está vacío
-            </div>
-          ) : (
-            cart.map(item => (
-              <div key={item.productId} className="ditem">
-                <div className="dicon">{item.icon}</div>
-                <div className="dinfo">
-                  <div className="dname">{item.name}</div>
-                  <div className="dline">{item.price} ARS</div>
-                  <div className="dprice gold" style={{ fontFamily: 'Cormorant Garamond, serif' }}>
-                    ${(parseFloat(item.price) * item.quantity).toFixed(2)}
+          {/* Cart Items */}
+          <div style={{ flex: 1, overflowY: 'auto', padding: '20px' }}>
+            {cart.length === 0 ? (
+              <div style={{ textAlign: 'center', color: '#999', paddingTop: '40px' }}>
+                <ShoppingCart size={40} style={{ margin: '0 auto 20px', opacity: 0.5 }} />
+                <p>Tu carrito está vacío</p>
+              </div>
+            ) : (
+              cart.map((item) => (
+                <div key={item.productId} style={{
+                  display: 'flex',
+                  gap: '12px',
+                  padding: '15px',
+                  borderBottom: '1px solid rgba(201,168,76,0.1)',
+                  alignItems: 'center'
+                }}>
+                  <div style={{ fontSize: '24px' }}>{item.icon}</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: '14px', fontWeight: 'bold', color: 'var(--white)' }}>
+                      {item.name}
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#999' }}>
+                      ${item.price} c/u
+                    </div>
                   </div>
-                  <div className="dqty">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <button
                       onClick={() => updateQuantity(item.productId, item.quantity - 1)}
-                      className="qbtn"
+                      style={{
+                        background: 'rgba(201,168,76,0.1)',
+                        border: '1px solid rgba(201,168,76,0.3)',
+                        color: 'var(--gold)',
+                        width: '24px',
+                        height: '24px',
+                        cursor: 'pointer',
+                        borderRadius: '2px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '12px'
+                      }}
                     >
-                      <Minus size={14} />
+                      −
                     </button>
-                    <div className="qnum">{item.quantity}</div>
+                    <span style={{ width: '20px', textAlign: 'center', fontSize: '12px' }}>
+                      {item.quantity}
+                    </span>
                     <button
                       onClick={() => updateQuantity(item.productId, item.quantity + 1)}
-                      className="qbtn"
+                      style={{
+                        background: 'rgba(201,168,76,0.1)',
+                        border: '1px solid rgba(201,168,76,0.3)',
+                        color: 'var(--gold)',
+                        width: '24px',
+                        height: '24px',
+                        cursor: 'pointer',
+                        borderRadius: '2px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '12px'
+                      }}
                     >
-                      <Plus size={14} />
+                      +
                     </button>
                     <button
                       onClick={() => removeFromCart(item.productId)}
-                      className="rbtn"
+                      style={{
+                        background: 'rgba(200,50,50,0.1)',
+                        border: '1px solid rgba(200,50,50,0.3)',
+                        color: '#ff6b6b',
+                        width: '24px',
+                        height: '24px',
+                        cursor: 'pointer',
+                        borderRadius: '2px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '12px',
+                        marginLeft: '4px'
+                      }}
                     >
-                      <Trash2 size={16} />
+                      ✕
                     </button>
                   </div>
                 </div>
+              ))
+            )}
+          </div>
+
+          {/* Cart Footer */}
+          {cart.length > 0 && (
+            <div style={{
+              borderTop: '1px solid rgba(201,168,76,0.2)',
+              padding: '20px',
+              background: 'rgba(201,168,76,0.05)'
+            }}>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                marginBottom: '15px',
+                fontSize: '14px'
+              }}>
+                <span>Subtotal:</span>
+                <span style={{ color: 'var(--gold)' }}>${subtotal.toFixed(2)}</span>
               </div>
-            ))
+              <button
+                onClick={handleCheckout}
+                style={{
+                  width: '100%',
+                  background: 'var(--gold)',
+                  color: 'var(--black)',
+                  border: 'none',
+                  padding: '12px',
+                  fontSize: '14px',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  borderRadius: '4px',
+                  transition: 'all 0.3s',
+                  marginBottom: '10px'
+                }}
+                onMouseEnter={(e) => {
+                  (e.target as HTMLButtonElement).style.background = 'rgba(201,168,76,0.8)';
+                }}
+                onMouseLeave={(e) => {
+                  (e.target as HTMLButtonElement).style.background = 'var(--gold)';
+                }}
+              >
+                Ir a Checkout
+              </button>
+              <button
+                onClick={() => setCartOpen(false)}
+                style={{
+                  width: '100%',
+                  background: 'transparent',
+                  color: 'var(--gold)',
+                  border: '1px solid rgba(201,168,76,0.3)',
+                  padding: '12px',
+                  fontSize: '14px',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  borderRadius: '4px',
+                  transition: 'all 0.3s'
+                }}
+                onMouseEnter={(e) => {
+                  (e.target as HTMLButtonElement).style.background = 'rgba(201,168,76,0.1)';
+                }}
+                onMouseLeave={(e) => {
+                  (e.target as HTMLButtonElement).style.background = 'transparent';
+                }}
+              >
+                Continuar Comprando
+              </button>
+            </div>
           )}
         </div>
+      )}
 
-        <div className="dftr">
-          <div className="total-row">
-            <div className="total-lbl">Subtotal</div>
-            <div className="total-amt" style={{ fontFamily: 'Cormorant Garamond, serif' }}>
-              ${subtotal.toFixed(2)}
-            </div>
-          </div>
-          <button
-            onClick={() => setLocation('/checkout')}
-            className="checkout-btn"
-          >
-            Ir al Checkout
-          </button>
-          <button
-            onClick={() => setCartOpen(false)}
-            className="cont-btn"
-          >
-            Continuar Comprando
-          </button>
-        </div>
-      </div>
+      {/* Cart Overlay */}
+      {cartOpen && (
+        <div
+          onClick={() => setCartOpen(false)}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0,0,0,0.5)',
+            zIndex: 40
+          }}
+        />
+      )}
 
-      {/* Toast */}
-      <div className={`toast ${toast ? 'show' : ''}`}>
-        {toast}
-      </div>
+      <style>{`
+        @keyframes slideIn {
+          from { transform: translateY(10px); opacity: 0; }
+          to { transform: translateY(0); opacity: 1; }
+        }
+        @keyframes slideInRight {
+          from { transform: translateX(100%); }
+          to { transform: translateX(0); }
+        }
+      `}</style>
     </div>
   );
 }

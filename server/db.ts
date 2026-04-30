@@ -501,3 +501,18 @@ export async function triggerDeliveryNotification(shipmentId: number) {
     console.error('[DB] Error triggering delivery notification:', error);
   }
 }
+
+
+export async function getAllCustomers(): Promise<Customer[]> {
+  const db = await getDb();
+  if (!db) return [];
+  
+  return db.select().from(customers);
+}
+
+export async function getAllShipments(): Promise<Shipment[]> {
+  const db = await getDb();
+  if (!db) return [];
+  
+  return db.select().from(shipments);
+}

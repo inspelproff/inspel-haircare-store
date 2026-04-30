@@ -90,6 +90,10 @@ export const appRouter = router({
 
   // ============ CUSTOMERS ============
   customers: router({
+    getAll: adminProcedure.query(async () => {
+      return db.getAllCustomers();
+    }),
+
     create: publicProcedure
       .input(z.object({
         firstName: z.string().min(1),
@@ -197,6 +201,10 @@ export const appRouter = router({
 
   // ============ SHIPMENTS ============
   shipments: router({
+    getAll: adminProcedure.query(async () => {
+      return db.getAllShipments();
+    }),
+
     create: adminProcedure
       .input(z.object({
         orderId: z.number(),
