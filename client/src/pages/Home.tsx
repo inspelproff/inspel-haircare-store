@@ -83,7 +83,7 @@ export default function Home() {
       <header className="bg-[var(--black)] border-b border-[rgba(201,168,76,0.2)] sticky top-0 z-40 px-6">
         <div className="max-w-6xl mx-auto flex items-center justify-between h-16">
           <div className="flex flex-col leading-none">
-            <span className="text-xl font-medium text-[var(--gold)] tracking-widest" style={{ fontFamily: 'Cormorant Garamond, serif' }}>
+            <span className="text-xl font-medium text-[var(--gold)] tracking-widest" style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '36px', fontWeight: '800' }}>
               Inspel
             </span>
             <span className="text-xs font-light tracking-widest text-[var(--white-dim)] uppercase mt-1">
