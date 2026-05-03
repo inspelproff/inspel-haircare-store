@@ -1,25 +1,20 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useLocation } from 'wouter';
 import { trpc } from '@/lib/trpc';
 import { useAuth } from '@/_core/hooks/useAuth';
+import { useCart } from '@/contexts/CartContext';
 import { Button } from '@/components/ui/button';
 import { X, Plus, Minus, Trash2, ShoppingCart } from 'lucide-react';
-
-interface CartItem {
-  productId: number;
-  name: string;
-  price: string;
-  quantity: number;
-  icon: string;
-}
 
 export default function Home() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
   const [currentLine, setCurrentLine] = useState<'Nutriessence' | 'Strength'>('Nutriessence');
   const [cartOpen, setCartOpen] = useState(false);
-  const [cart, setCart] = useState<CartItem[]>([]);
   const [toast, setToast] = useState('');
+  
+  // Use cart context instead of local state
+  const { cart, addToCart, updateQuantity, removeFromCart, subtotal, cartCount } = useCart();
 
   // Fetch products
   const { data: products = [] } = trpc.products.getByLine.useQuery(currentLine);
@@ -30,52 +25,11 @@ export default function Home() {
     setTimeout(() => setToast(''), 3000);
   };
 
-  // Add to cart
-  const addToCart = (product: any) => {
-    const existingItem = cart.find(item => item.productId === product.id);
-    
-    if (existingItem) {
-      setCart(cart.map(item =>
-        item.productId === product.id
-          ? { ...item, quantity: item.quantity + 1 }
-          : item
-      ));
-    } else {
-      setCart([...cart, {
-        productId: product.id,
-        name: product.name,
-        price: product.price,
-        quantity: 1,
-        icon: product.icon || '💇',
-      }]);
-    }
+  // Add to cart with toast
+  const handleAddToCart = (product: any) => {
+    addToCart(product);
     showToast(`${product.name} agregado al carrito`);
   };
-
-  // Update quantity
-  const updateQuantity = (productId: number, quantity: number) => {
-    if (quantity <= 0) {
-      removeFromCart(productId);
-    } else {
-      setCart(cart.map(item =>
-        item.productId === productId
-          ? { ...item, quantity }
-          : item
-      ));
-    }
-  };
-
-  // Remove from cart
-  const removeFromCart = (productId: number) => {
-    setCart(cart.filter(item => item.productId !== productId));
-  };
-
-  // Calculate totals
-  const subtotal = cart.reduce((sum, item) => {
-    return sum + (parseFloat(item.price) * item.quantity);
-  }, 0);
-
-  const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
   return (
     <div className="min-h-screen bg-[var(--black)] text-[var(--white)]">
@@ -168,7 +122,7 @@ export default function Home() {
                     ${product.price}
                   </div>
                   <button
-                    onClick={() => addToCart(product)}
+                    onClick={() => handleAddToCart(product)}
                     className={`abtn ${currentLine === 'Strength' ? 'blue' : 'gold'}`}
                   >
                     Agregar al carrito

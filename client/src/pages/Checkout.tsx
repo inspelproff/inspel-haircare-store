@@ -1,22 +1,15 @@
 import { useState } from 'react';
 import { useLocation } from 'wouter';
 import { trpc } from '@/lib/trpc';
+import { useCart } from '@/contexts/CartContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ArrowLeft } from 'lucide-react';
 
-interface CartItem {
-  productId: number;
-  name: string;
-  price: string;
-  quantity: number;
-  icon: string;
-}
-
 export default function Checkout() {
   const [, setLocation] = useLocation();
-  const [cart] = useState<CartItem[]>([]);
+  const { cart, subtotal, clearCart } = useCart();
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -28,24 +21,18 @@ export default function Checkout() {
     postalCode: '',
     carrier: 'andreani' as 'andreani' | 'correo_argentino',
   });
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const createCustomerMutation = trpc.customers.create.useMutation();
-  const createOrderMutation = trpc.orders.create.useMutation({
-    onSuccess: (order) => {
-      // Redirect to order confirmation
-      setLocation(`/order/${order.orderNumber}`);
-    },
-  });
+  const createOrderMutation = trpc.orders.create.useMutation();
+  const createMercadoPagoPreferenceMutation = trpc.payments.createMercadoPagoPreference.useMutation();
 
-  const subtotal = cart.reduce((sum, item) => {
-    return sum + (parseFloat(item.price) * item.quantity);
-  }, 0);
-
-  const shippingCost = 150; // Placeholder
+  const shippingCost = 150; // Placeholder - should be calculated based on carrier and location
   const total = subtotal + shippingCost;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsProcessing(true);
 
     try {
       // Create customer
@@ -64,7 +51,7 @@ export default function Checkout() {
       const orderNumber = `INS-${Date.now()}`;
 
       // Create order
-      await createOrderMutation.mutateAsync({
+      const order = await createOrderMutation.mutateAsync({
         orderNumber,
         customerId: customer.id,
         subtotal: subtotal.toFixed(2),
@@ -77,8 +64,39 @@ export default function Checkout() {
           price: item.price,
         })),
       });
+
+      // Create Mercado Pago preference
+      const backUrl = `${window.location.origin}/order/${orderNumber}`;
+      const preference = await createMercadoPagoPreferenceMutation.mutateAsync({
+        orderId: orderNumber,
+        items: cart.map(item => ({
+          title: item.name,
+          quantity: item.quantity,
+          unit_price: parseFloat(item.price),
+        })),
+        payer: {
+          name: `${formData.firstName} ${formData.lastName}`,
+          email: formData.email,
+          phone: formData.phone,
+        },
+        backUrls: {
+          success: backUrl,
+          failure: backUrl,
+          pending: backUrl,
+        },
+      });
+
+      // Redirect to Mercado Pago
+      if (preference.initPoint) {
+        clearCart();
+        window.location.href = preference.initPoint;
+      } else if (preference.sandboxInitPoint) {
+        clearCart();
+        window.location.href = preference.sandboxInitPoint;
+      }
     } catch (error) {
       console.error('Error creating order:', error);
+      setIsProcessing(false);
     }
   };
 
@@ -218,8 +236,8 @@ export default function Checkout() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="bg-[var(--black-mid)] border-[rgba(201,168,76,0.2)]">
-                    <SelectItem value="andreani">Andreani</SelectItem>
-                    <SelectItem value="correo_argentino">Correo Argentino</SelectItem>
+                    <SelectItem value="andreani">Andreani - $150</SelectItem>
+                    <SelectItem value="correo_argentino">Correo Argentino - $150</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -227,9 +245,9 @@ export default function Checkout() {
               <Button
                 type="submit"
                 className="w-full bg-[var(--gold)] text-[var(--black)] hover:bg-[var(--gold-light)] py-3 text-lg"
-                disabled={createOrderMutation.isPending}
+                disabled={isProcessing}
               >
-                {createOrderMutation.isPending ? 'Procesando...' : 'Proceder al Pago'}
+                {isProcessing ? 'Procesando...' : 'Proceder al Pago'}
               </Button>
             </form>
           </div>
