@@ -3,6 +3,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/NotFound";
 import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
+import ProtectedRoute from "./components/ProtectedRoute";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { CartProvider } from "./contexts/CartContext";
 import Home from "./pages/Home";
@@ -14,7 +15,11 @@ function Router() {
   return (
     <Switch>
       <Route path={"/"} component={Home} />
-      <Route path={"/admin"} component={Admin} />
+      <Route path={"/admin"}>
+        <ProtectedRoute requiredRole="admin">
+          <Admin />
+        </ProtectedRoute>
+      </Route>
       <Route path={"/checkout"} component={Checkout} />
       <Route path={"/order/:orderNumber"} component={OrderConfirmation} />
       <Route path={"/404"} component={NotFound} />

@@ -7,11 +7,15 @@ import * as db from "./db";
 import { TRPCError } from "@trpc/server";
 import * as payment from "./payment";
 import * as shipping from "./shipping";
+import * as validation from "./_core/validation";
 
-// Helper para verificar si es admin
+// Helper para verificar si es admin - con validación más estricta
 const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
-  if (ctx.user.role !== 'admin') {
-    throw new TRPCError({ code: 'FORBIDDEN', message: 'Admin access required' });
+  if (!ctx.user || ctx.user.role !== 'admin') {
+    throw new TRPCError({ 
+      code: 'FORBIDDEN', 
+      message: 'Admin access required. This action has been logged.' 
+    });
   }
   return next({ ctx });
 });
@@ -42,47 +46,50 @@ export const appRouter = router({
       }),
 
     getById: publicProcedure
-      .input(z.number())
+      .input(z.number().int().positive())
       .query(async ({ input }) => {
         return db.getProductById(input);
       }),
 
     create: adminProcedure
-      .input(z.object({
-        name: z.string().min(1),
-        line: z.enum(["Nutriessence", "Strength"]),
-        description: z.string().optional(),
-        price: z.string().regex(/^\d+(\.\d{2})?$/),
-        stock: z.number().int().min(0),
-        image: z.string().optional(),
-        icon: z.string().optional(),
-        badge: z.string().optional(),
-      }))
+      .input(validation.ProductSchema)
       .mutation(async ({ input }) => {
-        return db.createProduct(input);
+        const validatedInput = await validation.validateAndSanitize(validation.ProductSchema, input);
+        return db.createProduct(validatedInput);
       }),
 
     update: adminProcedure
       .input(z.object({
-        id: z.number(),
-        name: z.string().optional(),
+        id: z.number().int().positive(),
+        name: z.string().min(1).max(255).trim().optional(),
         line: z.enum(["Nutriessence", "Strength"]).optional(),
-        description: z.string().optional(),
+        description: z.string().max(5000).trim().optional(),
         price: z.string().regex(/^\d+(\.\d{2})?$/).optional(),
-        stock: z.number().int().min(0).optional(),
-        image: z.string().optional(),
-        icon: z.string().optional(),
-        badge: z.string().optional(),
+        stock: z.number().int().min(0).max(999999).optional(),
+        image: z.string().url().optional().or(z.literal('')),
+        icon: z.string().max(10).optional(),
+        badge: z.string().max(100).trim().optional(),
         active: z.boolean().optional(),
       }))
       .mutation(async ({ input }) => {
         const { id, ...data } = input;
+        if (Object.keys(data).length === 0) {
+          throw new TRPCError({ code: 'BAD_REQUEST', message: 'No fields to update' });
+        }
+        const product = await db.getProductById(id);
+        if (!product) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'Product not found' });
+        }
         return db.updateProduct(id, data);
       }),
 
     delete: adminProcedure
-      .input(z.number())
+      .input(z.number().int().positive())
       .mutation(async ({ input }) => {
+        const product = await db.getProductById(input);
+        if (!product) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'Product not found' });
+        }
         await db.deleteProduct(input);
         return { success: true };
       }),
@@ -91,22 +98,14 @@ export const appRouter = router({
   // ============ CUSTOMERS ============
   customers: router({
     create: publicProcedure
-      .input(z.object({
-        firstName: z.string().min(1),
-        lastName: z.string().min(1),
-        email: z.string().email(),
-        phone: z.string().min(1),
-        address: z.string().min(1),
-        city: z.string().min(1),
-        province: z.string().min(1),
-        postalCode: z.string().min(1),
-      }))
+      .input(validation.CustomerSchema)
       .mutation(async ({ input }) => {
-        return db.createCustomer(input);
+        const validatedInput = await validation.validateAndSanitize(validation.CustomerSchema, input);
+        return db.createCustomer(validatedInput);
       }),
 
     getById: publicProcedure
-      .input(z.number())
+      .input(z.number().int().positive())
       .query(async ({ input }) => {
         return db.getCustomerById(input);
       }),
@@ -115,38 +114,44 @@ export const appRouter = router({
   // ============ ORDERS ============
   orders: router({
     getAll: adminProcedure.query(async () => {
+      // Solo administradores pueden ver todos los pedidos
       return db.getAllOrders();
     }),
 
     getById: publicProcedure
-      .input(z.number())
+      .input(z.number().int().positive())
       .query(async ({ input }) => {
         return db.getOrderById(input);
       }),
 
     getByNumber: publicProcedure
-      .input(z.string())
+      .input(z.string().min(1).max(50))
       .query(async ({ input }) => {
         return db.getOrderByNumber(input);
       }),
 
     create: publicProcedure
-      .input(z.object({
-        orderNumber: z.string(),
-        customerId: z.number(),
-        subtotal: z.string().regex(/^\d+(\.\d{2})?$/),
-        shippingCost: z.string().regex(/^\d+(\.\d{2})?$/),
-        total: z.string().regex(/^\d+(\.\d{2})?$/),
-        paymentMethod: z.enum(["mercadopago", "transfer"]),
-        notes: z.string().optional(),
-        items: z.array(z.object({
-          productId: z.number(),
-          quantity: z.number().int().min(1),
-          price: z.string().regex(/^\d+(\.\d{2})?$/),
-        })),
-      }))
+      .input(validation.OrderSchema)
       .mutation(async ({ input }) => {
-        const { items, ...orderData } = input;
+        const validatedInput = await validation.validateAndSanitize(validation.OrderSchema, input);
+        const { items, ...orderData } = validatedInput;
+        
+        // Validar que el cliente exista
+        const customer = await db.getCustomerById(orderData.customerId);
+        if (!customer) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'Customer not found' });
+        }
+        
+        // Validar que los productos existan y tengan stock
+        for (const item of items) {
+          const product = await db.getProductById(item.productId);
+          if (!product) {
+            throw new TRPCError({ code: 'NOT_FOUND', message: `Product ${item.productId} not found` });
+          }
+          if (product.stock < item.quantity) {
+            throw new TRPCError({ code: 'BAD_REQUEST', message: `Insufficient stock for ${product.name}` });
+          }
+        }
         
         // Create order
         const order = await db.createOrder(orderData);
@@ -161,27 +166,35 @@ export const appRouter = router({
           });
         }
         
-        return order;
         // Trigger notifications and emails
         await db.triggerOrderNotifications(order.id);
+        return order;
       }),
 
     updateStatus: adminProcedure
       .input(z.object({
-        id: z.number(),
+        id: z.number().int().positive(),
         status: z.enum(["pending", "confirmed", "processing", "shipped", "delivered", "cancelled"]),
       }))
       .mutation(async ({ input }) => {
+        const order = await db.getOrderById(input.id);
+        if (!order) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'Order not found' });
+        }
         return db.updateOrderStatus(input.id, input.status);
       }),
 
     updatePaymentStatus: adminProcedure
       .input(z.object({
-        id: z.number(),
+        id: z.number().int().positive(),
         paymentStatus: z.enum(["pending", "approved", "rejected", "cancelled"]),
-        mercadopagoId: z.string().optional(),
+        mercadopagoId: z.string().max(100).optional(),
       }))
       .mutation(async ({ input }) => {
+        const order = await db.getOrderById(input.id);
+        if (!order) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'Order not found' });
+        }
         return db.updateOrderPaymentStatus(input.id, input.paymentStatus, input.mercadopagoId);
       }),
   }),
@@ -189,7 +202,7 @@ export const appRouter = router({
   // ============ ORDER ITEMS ============
   orderItems: router({
     getByOrderId: publicProcedure
-      .input(z.number())
+      .input(z.number().int().positive())
       .query(async ({ input }) => {
         return db.getOrderItems(input);
       }),
@@ -198,60 +211,41 @@ export const appRouter = router({
   // ============ SHIPMENTS ============
   shipments: router({
     create: adminProcedure
-      .input(z.object({
-        orderId: z.number(),
-        carrier: z.enum(["andreani", "correo_argentino"]),
-        trackingNumber: z.string().optional(),
-        carrier_tracking_url: z.string().optional(),
-      }))
+      .input(validation.ShipmentSchema)
       .mutation(async ({ input }) => {
-        return db.createShipment(input);
+        const validatedInput = await validation.validateAndSanitize(validation.ShipmentSchema, input);
+        const order = await db.getOrderById(validatedInput.orderId);
+        if (!order) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'Order not found' });
+        }
+        return db.createShipment(validatedInput);
       }),
 
     getByOrderId: publicProcedure
-      .input(z.number())
+      .input(z.number().int().positive())
       .query(async ({ input }) => {
         return db.getShipmentByOrderId(input);
       }),
 
     updateStatus: adminProcedure
-      .input(z.object({
-        id: z.number(),
-        status: z.enum(["pending", "picked_up", "in_transit", "out_for_delivery", "delivered", "failed"]),
-        actualDelivery: z.date().optional(),
-      }))
+      .input(validation.UpdateShipmentStatusSchema)
       .mutation(async ({ input }) => {
-        return db.updateShipmentStatus(input.id, input.status, input.actualDelivery);
+        const validatedInput = await validation.validateAndSanitize(validation.UpdateShipmentStatusSchema, input);
+        return db.updateShipmentStatus(validatedInput.id, validatedInput.status, validatedInput.actualDelivery);
       }),
   }),
 
   // ============ PAYMENTS ============
   payments: router({
     createMercadoPagoPreference: publicProcedure
-      .input(z.object({
-        orderId: z.string(),
-        items: z.array(z.object({
-          title: z.string(),
-          quantity: z.number().int().min(1),
-          unit_price: z.number().min(0),
-        })),
-        payer: z.object({
-          name: z.string(),
-          email: z.string().email(),
-          phone: z.string().optional(),
-        }),
-        backUrls: z.object({
-          success: z.string().url(),
-          failure: z.string().url(),
-          pending: z.string().url(),
-        }),
-      }))
+      .input(validation.MercadoPagoPreferenceSchema)
       .mutation(async ({ input }) => {
-        return payment.createMercadoPagoPreference(input);
+        const validatedInput = await validation.validateAndSanitize(validation.MercadoPagoPreferenceSchema, input);
+        return payment.createMercadoPagoPreference(validatedInput);
       }),
 
     getMercadoPagoStatus: publicProcedure
-      .input(z.string())
+      .input(z.string().min(1).max(100))
       .query(async ({ input }) => {
         return payment.getMercadoPagoPaymentStatus(input);
       }),
@@ -261,52 +255,52 @@ export const appRouter = router({
   shippingIntegration: router({
     createAndreaniShipment: adminProcedure
       .input(z.object({
-        orderId: z.string(),
-        recipientName: z.string(),
-        recipientPhone: z.string(),
+        orderId: z.string().min(1).max(50),
+        recipientName: z.string().min(1).max(255),
+        recipientPhone: z.string().min(5).max(20),
         recipientEmail: z.string().email(),
-        address: z.string(),
-        city: z.string(),
-        province: z.string(),
-        postalCode: z.string(),
-        weight: z.number().min(0.1),
+        address: z.string().min(5).max(500),
+        city: z.string().min(1).max(100),
+        province: z.string().min(1).max(100),
+        postalCode: z.string().min(1).max(20),
+        weight: z.number().min(0.1).max(100),
         items: z.array(z.object({
-          description: z.string(),
-          quantity: z.number().int().min(1),
-        })),
+          description: z.string().min(1).max(255),
+          quantity: z.number().int().min(1).max(999),
+        })).min(1),
       }))
       .mutation(async ({ input }) => {
         return shipping.createAndreaniShipment(input);
       }),
 
     getAndreaniTracking: publicProcedure
-      .input(z.string())
+      .input(z.string().min(1).max(100))
       .query(async ({ input }) => {
         return shipping.getAndreaniTracking(input);
       }),
 
     createCorreoArgentinoShipment: adminProcedure
       .input(z.object({
-        orderId: z.string(),
-        recipientName: z.string(),
-        recipientPhone: z.string(),
+        orderId: z.string().min(1).max(50),
+        recipientName: z.string().min(1).max(255),
+        recipientPhone: z.string().min(5).max(20),
         recipientEmail: z.string().email(),
-        address: z.string(),
-        city: z.string(),
-        province: z.string(),
-        postalCode: z.string(),
-        weight: z.number().min(0.1),
+        address: z.string().min(5).max(500),
+        city: z.string().min(1).max(100),
+        province: z.string().min(1).max(100),
+        postalCode: z.string().min(1).max(20),
+        weight: z.number().min(0.1).max(100),
         items: z.array(z.object({
-          description: z.string(),
-          quantity: z.number().int().min(1),
-        })),
+          description: z.string().min(1).max(255),
+          quantity: z.number().int().min(1).max(999),
+        })).min(1),
       }))
       .mutation(async ({ input }) => {
         return shipping.createCorreoArgentinoShipment(input);
       }),
 
     getCorreoArgentinoTracking: publicProcedure
-      .input(z.string())
+      .input(z.string().min(1).max(100))
       .query(async ({ input }) => {
         return shipping.getCorreoArgentinoTracking(input);
       }),
