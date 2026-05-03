@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { notifyOwner } from "./notification";
 import { adminProcedure, publicProcedure, router } from "./trpc";
+import { getGoogleMapsScriptUrl } from "../map";
 
 export const systemRouter = router({
   health: publicProcedure
@@ -25,5 +26,11 @@ export const systemRouter = router({
       return {
         success: delivered,
       } as const;
+    }),
+
+  getGoogleMapsScriptUrl: publicProcedure
+    .input(z.string())
+    .query(async ({ input }) => {
+      return getGoogleMapsScriptUrl(input);
     }),
 });

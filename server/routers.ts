@@ -8,6 +8,7 @@ import { TRPCError } from "@trpc/server";
 import * as payment from "./payment";
 import * as shipping from "./shipping";
 import * as validation from "./_core/validation";
+import { calculateShippingCost, getAvailableProvinces } from "./shipping-costs";
 
 // Helper para verificar si es admin - con validación más estricta
 const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
@@ -153,18 +154,11 @@ export const appRouter = router({
           }
         }
         
-        // Create order
-        const order = await db.createOrder(orderData);
-        
-        // Create order items
-        for (const item of items) {
-          await db.createOrderItem({
-            orderId: order.id,
-            productId: item.productId,
-            quantity: item.quantity,
-            price: item.price,
-          });
-        }
+        // Create order with items in a transaction
+        const order = await db.createOrder({
+          ...orderData,
+          items: items,
+        });
         
         // Trigger notifications and emails
         await db.triggerOrderNotifications(order.id);
@@ -232,6 +226,40 @@ export const appRouter = router({
       .mutation(async ({ input }) => {
         const validatedInput = await validation.validateAndSanitize(validation.UpdateShipmentStatusSchema, input);
         return db.updateShipmentStatus(validatedInput.id, validatedInput.status, validatedInput.actualDelivery);
+      }),
+  }),
+
+  // ============ SHIPPING COSTS ============
+  shippingCosts: router({
+    calculate: publicProcedure
+      .input(z.object({
+        carrier: z.enum(['andreani', 'correo_argentino']),
+        province: z.string().min(1),
+      }))
+      .query(async ({ input }) => {
+        try {
+          const cost = calculateShippingCost(input.carrier, input.province);
+          return { cost };
+        } catch (error) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: (error as Error).message,
+          });
+        }
+      }),
+
+    getAvailableProvinces: publicProcedure
+      .input(z.enum(['andreani', 'correo_argentino']))
+      .query(async ({ input }) => {
+        try {
+          const provinces = getAvailableProvinces(input);
+          return { provinces };
+        } catch (error) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: (error as Error).message,
+          });
+        }
       }),
   }),
 

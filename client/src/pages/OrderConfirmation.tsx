@@ -24,6 +24,8 @@ export default function OrderConfirmation() {
     enabled: !!order?.id,
   });
 
+  const { data: products } = trpc.products.getAll.useQuery();
+
   useEffect(() => {
     if (orderNumber) {
       setLoading(false);
@@ -84,6 +86,8 @@ export default function OrderConfirmation() {
   }
 
   const isApproved = order.paymentStatus === 'approved';
+  const isPending = order.paymentStatus === 'pending';
+  const isRejected = order.paymentStatus === 'rejected' || order.paymentStatus === 'cancelled';
 
   return (
     <div className="min-h-screen bg-[var(--black)] text-[var(--white)] p-6">
@@ -97,7 +101,17 @@ export default function OrderConfirmation() {
                 ¡Pedido Confirmado!
               </h1>
               <p className="text-[var(--white-dim)] mb-4">
-                Tu pago ha sido procesado exitosamente
+                Tu pago ha sido procesado exitosamente. Recibirás un email de confirmación en breve.
+              </p>
+            </>
+          ) : isRejected ? (
+            <>
+              <AlertCircle size={64} className="mx-auto mb-4 text-red-500" />
+              <h1 className="text-3xl font-light mb-2" style={{ fontFamily: 'Cormorant Garamond, serif' }}>
+                Pago Rechazado
+              </h1>
+              <p className="text-[var(--white-dim)] mb-4">
+                Hubo un problema con tu pago. Por favor, intenta nuevamente.
               </p>
             </>
           ) : (
@@ -107,7 +121,7 @@ export default function OrderConfirmation() {
                 Pedido Pendiente
               </h1>
               <p className="text-[var(--white-dim)] mb-4">
-                Tu pedido está siendo procesado
+                Tu pedido está siendo procesado. El estado se actualizará en breve.
               </p>
             </>
           )}
@@ -124,17 +138,20 @@ export default function OrderConfirmation() {
               Productos
             </h2>
             <div className="space-y-3">
-              {orderItems?.map(item => (
-                <div key={item.id} className="flex justify-between text-sm pb-3 border-b border-[rgba(201,168,76,0.13)]">
-                  <div>
-                    <div className="text-white">Producto ID: {item.productId}</div>
-                    <div className="text-[var(--white-dim)] text-xs">Cantidad: {item.quantity}</div>
+              {orderItems?.map(item => {
+                const product = products?.find(p => p.id === item.productId);
+                return (
+                  <div key={item.id} className="flex justify-between text-sm pb-3 border-b border-[rgba(201,168,76,0.13)]">
+                    <div>
+                      <div className="text-white">{product?.name || `Producto ${item.productId}`}</div>
+                      <div className="text-[var(--white-dim)] text-xs">Cantidad: {item.quantity}</div>
+                    </div>
+                    <div className="text-[var(--gold)]">
+                      ${(parseFloat(item.price) * item.quantity).toFixed(2)}
+                    </div>
                   </div>
-                  <div className="text-[var(--gold)]">
-                    ${(parseFloat(item.price) * item.quantity).toFixed(2)}
-                  </div>
-                </div>
-              ))}
+                );
+              })
             </div>
           </div>
 
@@ -202,13 +219,19 @@ export default function OrderConfirmation() {
           </h2>
           <div className="space-y-2">
             <div className="flex justify-between">
-              <span className="text-[var(--white-dim)]">Estado de Pago</span>
-              <span className={`capitalize ${isApproved ? 'text-green-500' : 'text-yellow-500'}`}>
-                {order.paymentStatus}
+              <span className="text-[var(--white-dim)]">
+                Estado de Pago
+              </span>
+              <span className={`capitalize ${
+                isApproved ? 'text-green-500' : isRejected ? 'text-red-500' : 'text-yellow-500'
+              }`}>
+                {isApproved ? 'Aprobado' : isRejected ? 'Rechazado' : 'Pendiente'}
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-[var(--white-dim)]">Estado del Pedido</span>
+              <span className="text-[var(--white-dim)]">
+                Estado del Pedido
+              </span>
               <span className="text-white capitalize">{order.status}</span>
             </div>
           </div>

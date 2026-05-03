@@ -6,27 +6,27 @@ import { z } from 'zod';
 
 // Validación de productos
 export const ProductSchema = z.object({
-  name: z.string().min(1).max(255).trim(),
+  name: z.string().min(1).max(255).trim().transform(val => val.replace(/[<>]/g, '')),
   line: z.enum(['Nutriessence', 'Strength']),
-  description: z.string().max(5000).trim().optional(),
+  description: z.string().max(1000).trim().transform(val => val.replace(/[<>]/g, '')).optional(),
   price: z.string().regex(/^\d+(\.\d{2})?$/, 'Formato de precio inválido'),
   stock: z.number().int().min(0).max(999999),
   image: z.string().url().optional().or(z.literal('')),
   icon: z.string().max(10).optional(),
-  badge: z.string().max(100).trim().optional(),
+  badge: z.string().max(100).trim().transform(val => val.replace(/[<>]/g, '')).optional(),
   active: z.boolean().optional(),
 });
 
 // Validación de clientes
 export const CustomerSchema = z.object({
-  firstName: z.string().min(1).max(100).trim(),
-  lastName: z.string().min(1).max(100).trim(),
+  firstName: z.string().min(1).max(100).trim().transform(val => val.replace(/[<>]/g, "")),
+  lastName: z.string().min(1).max(100).trim().transform(val => val.replace(/[<>]/g, "")),
   email: z.string().email(),
   phone: z.string().min(5).max(20).regex(/^[0-9\s\-\+\(\)]+$/, 'Teléfono inválido'),
-  address: z.string().min(5).max(500).trim(),
-  city: z.string().min(1).max(100).trim(),
-  province: z.string().min(1).max(100).trim(),
-  postalCode: z.string().min(1).max(20).trim(),
+  address: z.string().min(5).max(500).trim().transform(val => val.replace(/[<>]/g, "")),
+  city: z.string().min(1).max(100).trim().transform(val => val.replace(/[<>]/g, "")),
+  province: z.string().min(1).max(100).trim().transform(val => val.replace(/[<>]/g, "")),
+  postalCode: z.string().min(1).max(20).trim().transform(val => val.replace(/[<>]/g, "")),
 });
 
 // Validación de órdenes
@@ -37,7 +37,7 @@ export const OrderSchema = z.object({
   shippingCost: z.string().regex(/^\d+(\.\d{2})?$/),
   total: z.string().regex(/^\d+(\.\d{2})?$/),
   paymentMethod: z.enum(['mercadopago', 'transfer']),
-  notes: z.string().max(1000).trim().optional(),
+  notes: z.string().max(1000).trim().transform(val => val.replace(/[<>]/g, "")).optional(),
   items: z.array(z.object({
     productId: z.number().int().positive(),
     quantity: z.number().int().min(1).max(999),

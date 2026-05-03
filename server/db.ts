@@ -228,20 +228,55 @@ export async function createOrder(data: {
   total: string;
   paymentMethod: "mercadopago" | "transfer";
   notes?: string;
+  items: Array<{
+    productId: number;
+    quantity: number;
+    price: string;
+  }>;
 }): Promise<Order> {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  
-  const result = await db.insert(orders).values({
-    ...data,
-    status: "pending",
-    paymentStatus: "pending",
+
+  // Iniciar una transacción para asegurar la atomicidad
+  return db.transaction(async (tx) => {
+    // 1. Verificar y descontar stock
+    for (const item of data.items) {
+      const product = await tx.select().from(products).where(eq(products.id, item.productId)).for("update").limit(1);
+      if (!product.length || product[0].stock < item.quantity) {
+        throw new Error(`Stock insuficiente para el producto ${item.productId}`);
+      }
+      await tx.update(products).set({ stock: product[0].stock - item.quantity }).where(eq(products.id, item.productId));
+    }
+
+    // 2. Crear el pedido
+    const result = await tx.insert(orders).values({
+      orderNumber: data.orderNumber,
+      customerId: data.customerId,
+      subtotal: data.subtotal,
+      shippingCost: data.shippingCost,
+      total: data.total,
+      paymentMethod: data.paymentMethod,
+      notes: data.notes,
+      status: "pending",
+      paymentStatus: "pending",
+    });
+
+    const orderId = Number((result as any).insertId);
+
+    // 3. Crear los ítems del pedido
+    for (const item of data.items) {
+      await tx.insert(orderItems).values({
+        orderId: orderId,
+        productId: item.productId,
+        quantity: item.quantity,
+        price: item.price,
+      });
+    }
+
+    const newOrder = await tx.select().from(orders).where(eq(orders.id, orderId)).limit(1);
+    if (!newOrder.length) throw new Error("Failed to retrieve created order");
+    return newOrder[0];
   });
-  
-  const id = Number((result as any).insertId);
-  const order = await db.select().from(orders).where(eq(orders.id, id)).limit(1);
-  if (!order.length) throw new Error("Failed to create order");
-  return order[0];
 }
 
 export async function getOrderById(id: number): Promise<Order | undefined> {
@@ -298,22 +333,7 @@ export async function updateOrderPaymentStatus(
 
 // ============ ORDER ITEMS ============
 
-export async function createOrderItem(data: {
-  orderId: number;
-  productId: number;
-  quantity: number;
-  price: string;
-}): Promise<OrderItem> {
-  const db = await getDb();
-  if (!db) throw new Error("Database not available");
-  
-  const result = await db.insert(orderItems).values(data);
-  const id = Number((result as any).insertId);
-  
-  const item = await db.select().from(orderItems).where(eq(orderItems.id, id)).limit(1);
-  if (!item.length) throw new Error("Failed to create order item");
-  return item[0];
-}
+// createOrderItem ya no es llamada directamente desde el router, se maneja dentro de createOrder transactional.
 
 export async function getOrderItems(orderId: number): Promise<OrderItem[]> {
   const db = await getDb();

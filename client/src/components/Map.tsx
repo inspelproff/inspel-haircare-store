@@ -86,16 +86,18 @@ declare global {
   }
 }
 
-const API_KEY = import.meta.env.VITE_FRONTEND_FORGE_API_KEY;
-const FORGE_BASE_URL =
-  import.meta.env.VITE_FRONTEND_FORGE_API_URL ||
-  "https://forge.butterfly-effect.dev";
-const MAPS_PROXY_URL = `${FORGE_BASE_URL}/v1/maps/proxy`;
+import { trpc } from "@/lib/trpc";
+
+const MAPS_SCRIPT_URL_QUERY = trpc.system.getGoogleMapsScriptUrl.useQuery(
+  "marker,places,geocoding,geometry"
+);
+
+const API_KEY = MAPS_SCRIPT_URL_QUERY.data;
 
 function loadMapScript() {
   return new Promise(resolve => {
     const script = document.createElement("script");
-    script.src = `${MAPS_PROXY_URL}/maps/api/js?key=${API_KEY}&v=weekly&libraries=marker,places,geocoding,geometry`;
+    script.src = API_KEY;
     script.async = true;
     script.crossOrigin = "anonymous";
     script.onload = () => {
@@ -126,6 +128,7 @@ export function MapView({
   const map = useRef<google.maps.Map | null>(null);
 
   const init = usePersistFn(async () => {
+    if (!API_KEY) return; // Esperar a que la URL del script esté disponible
     await loadMapScript();
     if (!mapContainer.current) {
       console.error("Map container not found");

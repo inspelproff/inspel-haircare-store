@@ -27,7 +27,11 @@ export default function Checkout() {
   const createOrderMutation = trpc.orders.create.useMutation();
   const createMercadoPagoPreferenceMutation = trpc.payments.createMercadoPagoPreference.useMutation();
 
-  const shippingCost = 150; // Placeholder - should be calculated based on carrier and location
+  const shippingCostQuery = trpc.shippingCosts.calculate.useQuery(
+    { carrier: formData.carrier, province: formData.province },
+    { enabled: !!formData.province }
+  );
+  const shippingCost = shippingCostQuery.data?.cost || 0;
   const total = subtotal + shippingCost;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -236,8 +240,8 @@ export default function Checkout() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="bg-[var(--black-mid)] border-[rgba(201,168,76,0.2)]">
-                    <SelectItem value="andreani">Andreani - $150</SelectItem>
-                    <SelectItem value="correo_argentino">Correo Argentino - $150</SelectItem>
+                    <SelectItem value="andreani">Andreani - ${shippingCost > 0 ? shippingCost : 'Calculando...'}</SelectItem>
+                    <SelectItem value="correo_argentino">Correo Argentino - ${shippingCost > 0 ? shippingCost : 'Calculando...'}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
