@@ -24,7 +24,10 @@ export default function Admin() {
     stock: '',
     icon: '💇',
     badge: '',
+    image: '',
   });
+  const [imagePreview, setImagePreview] = useState<string>('');
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
 
   // Fetch all products
   const { data: allProducts = [], refetch: refetchProducts } = trpc.products.getAll.useQuery();
@@ -83,8 +86,41 @@ export default function Admin() {
       stock: '',
       icon: '💇',
       badge: '',
+      image: '',
     });
+    setImagePreview('');
     setEditingId(null);
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      alert('Por favor, selecciona un archivo de imagen');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert('La imagen no debe superar 5MB');
+      return;
+    }
+
+    setIsUploadingImage(true);
+    try {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64 = reader.result as string;
+        setImagePreview(base64);
+        setFormData({ ...formData, image: base64 });
+      };
+      reader.readAsDataURL(file);
+    } catch (error) {
+      console.error('Error al cargar la imagen:', error);
+      alert('Error al cargar la imagen');
+    } finally {
+      setIsUploadingImage(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -261,6 +297,31 @@ export default function Admin() {
                       </div>
                     </div>
 
+                    <div>
+                      <label className="block text-xs tracking-widest uppercase text-[var(--gold)] mb-2">
+                        Foto del Producto
+                      </label>
+                      <div className="flex gap-4">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleImageUpload}
+                          disabled={isUploadingImage}
+                          className="flex-1 bg-[var(--black-soft)] border border-[rgba(201,168,76,0.2)] text-white p-2 rounded cursor-pointer"
+                        />
+                      </div>
+                      {imagePreview && (
+                        <div className="mt-4">
+                          <p className="text-xs text-[var(--gold)] mb-2">Previsualización:</p>
+                          <img
+                            src={imagePreview}
+                            alt="Preview"
+                            className="w-full h-48 object-cover rounded border border-[rgba(201,168,76,0.2)]"
+                          />
+                        </div>
+                      )}
+                    </div>
+
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className="block text-xs tracking-widest uppercase text-[var(--gold)] mb-2">
@@ -316,6 +377,9 @@ export default function Admin() {
                   <thead>
                     <tr className="border-b border-[rgba(201,168,76,0.13)] bg-[var(--charcoal)]">
                       <th className="px-6 py-4 text-left text-xs tracking-widest uppercase text-[var(--gold)]">
+                        Imagen
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs tracking-widest uppercase text-[var(--gold)]">
                         Nombre
                       </th>
                       <th className="px-6 py-4 text-left text-xs tracking-widest uppercase text-[var(--gold)]">
@@ -335,6 +399,19 @@ export default function Admin() {
                   <tbody>
                     {allProducts.map((product: any) => (
                       <tr key={product.id} className="border-b border-[rgba(201,168,76,0.13)] hover:bg-[var(--black-soft)] transition-colors">
+                        <td className="px-6 py-4 text-sm">
+                          {product.image ? (
+                            <img
+                              src={product.image}
+                              alt={product.name}
+                              className="w-12 h-12 object-cover rounded border border-[rgba(201,168,76,0.2)]"
+                            />
+                          ) : (
+                            <div className="w-12 h-12 bg-[var(--black-soft)] rounded border border-[rgba(201,168,76,0.2)] flex items-center justify-center text-xs text-[var(--white-dim)]">
+                              Sin imagen
+                            </div>
+                          )}
+                        </td>
                         <td className="px-6 py-4 text-sm">
                           <div className="flex items-center gap-2">
                             <span className="text-lg">{product.icon}</span>
